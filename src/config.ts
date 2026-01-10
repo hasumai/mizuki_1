@@ -209,12 +209,14 @@ export const siteConfig: SiteConfig = {
 export const fullscreenWallpaperConfig: FullscreenWallpaperConfig = {
 	src: {
 		desktop: [
-			"/assets/desktop-banner/1.webp",
-			"/assets/desktop-banner/2.webp",
-			"/assets/desktop-banner/3.webp",
-			"/assets/desktop-banner/4.webp",
-			"/assets/desktop-banner/5.webp",
-			"/assets/desktop-banner/6.webp",
+			"/assets/desktop-banner/megumi1.jpg",
+			"/assets/desktop-banner/megumi2.jpg",
+			"/assets/desktop-banner/megumi3.jpg",
+			"/assets/desktop-banner/megumi4.jpg",
+			"/assets/desktop-banner/pote1.jpg",
+			"/assets/desktop-banner/pote2.jpg",
+			"/assets/desktop-banner/pote3.jpg",
+			"/assets/desktop-banner/pote4.jpg",
 		], // 桌面横幅图片
 		mobile: [
 			"/assets/mobile-banner/1.webp",
@@ -336,7 +338,7 @@ export const navBarConfig: NavBarConfig = {
 };
 
 export const profileConfig: ProfileConfig = {
-	avatar: "assets/images/avatar.webp", // 相对于 /src 目录。如果以 '/' 开头，则相对于 /public 目录
+	avatar: "assets/images/b_bd4ab29068921f2599f98a4f5116f0d0.jpg", // 相对于 /src 目录。如果以 '/' 开头，则相对于 /public 目录
 	name: "莲舞Hasumai",
 	bio: "The world is big, you have to go and see",
 	typewriter: {

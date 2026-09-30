@@ -2,6 +2,7 @@
 import Icon from "../components/misc/Icon.astro";
 import IconifyLoader from "../components/misc/IconifyLoader.astro";
 import SkillsChart from "../components/skills/SkillsChart.astro";
+import AnalysisLearning from "../components/skills/AnalysisLearning.svelte";
 import { siteConfig } from "../config";
 import { UNCATEGORIZED } from "../constants/constants";
 import {
@@ -127,6 +128,8 @@ const allIcons = skillsData.map((skill) => skill.icon).filter(Boolean);
           {i18n(I18nKey.skillsSubtitle)}
         </p>
       </div>
+
+      <AnalysisLearning client:load />
 
       <!-- 技能图表 -->
       <SkillsChart stats={stats} totalExperience={totalExperience} />

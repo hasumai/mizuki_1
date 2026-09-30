@@ -28,6 +28,7 @@ import "../styles/wallpaper-navbar-transparent.css";
 import "../styles/fancybox-custom.css";
 import "../styles/expressive-code.css";
 import "../styles/panel-animations.css";
+import "../styles/site-glass.css";
 
 interface Props {
 	title?: string;
@@ -344,7 +345,7 @@ if (siteConfig.font) {
 		{umamiEnabled && umamiScripts && <Fragment set:html={umamiScripts} />}
 	</head>
 	<body
-		class="min-h-screen"
+		class="min-h-screen site-glass"
 		class:list={[
 			{ "lg:is-home": isHomePage, "enable-banner": enableBanner },
 		]}

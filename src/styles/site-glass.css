@@ -1,0 +1,75 @@
+/* Shared glass surfaces, inspired by Nebula's PanelFallbackGlass approach.
+   CSS material only: no WebGL refraction. Nested cards avoid repeated blur. */
+body.site-glass {
+  --site-glass-fill: rgba(255, 250, 254, .74);
+  --site-glass-border: rgba(255, 255, 255, .7);
+  --site-glass-light: rgba(255, 255, 255, .85);
+  --site-glass-shadow: rgba(44, 28, 48, .13);
+  --site-glass-nested: rgba(255, 255, 255, .28);
+  --site-glass-wash: rgba(246, 238, 245, .48);
+}
+
+:root.dark body.site-glass {
+  --site-glass-fill: rgba(24, 23, 33, .76);
+  --site-glass-border: rgba(255, 255, 255, .2);
+  --site-glass-light: rgba(255, 255, 255, .2);
+  --site-glass-shadow: rgba(0, 0, 0, .28);
+  --site-glass-nested: rgba(255, 255, 255, .045);
+  --site-glass-wash: rgba(18, 17, 27, .48);
+}
+
+/* Banner mode previously left a solid background beneath the header. */
+body.site-glass.enable-banner::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(var(--site-glass-wash), var(--site-glass-wash)),
+    url('/assets/desktop-banner/pote4.jpg') center / cover no-repeat;
+}
+
+body.site-glass .card-base,
+body.site-glass .card-base-transparent,
+body.site-glass .float-panel,
+body.site-glass .dropdown-content,
+body.site-glass #navbar > div {
+  background: var(--site-glass-fill) !important;
+  border: 1px solid var(--site-glass-border) !important;
+  box-shadow: inset 0 1px 0 var(--site-glass-light),
+    inset 0 0 18px rgba(255, 255, 255, .045),
+    0 8px 28px var(--site-glass-shadow) !important;
+  backdrop-filter: blur(12px) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(125%) !important;
+}
+
+body.site-glass .card-base .card-base,
+body.site-glass .card-base .device-card,
+body.site-glass .card-base .skill-glass-item,
+body.site-glass .card-base .skills-chart-glass,
+body.site-glass .card-base .learning {
+  background: var(--site-glass-nested) !important;
+  border: 1px solid var(--site-glass-border) !important;
+  box-shadow: inset 0 1px 0 var(--site-glass-light), 0 3px 12px var(--site-glass-shadow) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Reading controls and inputs retain their opaque theme surface. */
+body.site-glass .learning :is(input, select, textarea) {
+  background: var(--card-bg);
+}
+
+@media (max-width: 768px) {
+  body.site-glass { --site-glass-fill: rgba(255, 250, 254, .84); }
+  :root.dark body.site-glass { --site-glass-fill: rgba(24, 23, 33, .86); }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  body.site-glass { --site-glass-fill: var(--card-bg); }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  body.site-glass { --site-glass-fill: var(--card-bg); --site-glass-nested: var(--card-bg); }
+  body.site-glass.enable-banner::before { display: none; }
+}

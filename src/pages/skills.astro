@@ -116,7 +116,7 @@ const allIcons = skillsData.map((skill) => skill.icon).filter(Boolean);
   <!-- 图标加载器，预加载所有技能图标 -->
   <IconifyLoader preloadIcons={allIcons} />
   <div class="flex w-full rounded-[var(--radius-large)] overflow-hidden relative min-h-32">
-    <div class="skills-surface z-10 px-9 py-6 relative w-full">
+    <div class="card-base z-10 px-9 py-6 relative w-full">
       <!-- 页面标题 -->
       <div class="flex flex-col items-start justify-center mb-8">
         <h1 class="text-4xl font-bold text-black/90 dark:text-white/90 mb-2 relative
@@ -274,16 +274,6 @@ const allIcons = skillsData.map((skill) => skill.icon).filter(Boolean);
 </MainGridLayout>
 
 <style>
-  .skills-surface {
-    border: 1px solid rgba(255, 255, 255, .76);
-    border-radius: var(--radius-large);
-    background-color: #f7f1f5;
-    background-image: linear-gradient(180deg, rgba(250, 247, 250, .56), rgba(250, 247, 250, .83) 560px, #f7f1f5 1100px), url('/assets/desktop-banner/megumi1.jpg');
-    background-position: center top;
-    background-size: 100% 100%, 100% auto;
-    background-repeat: no-repeat;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .85), 0 14px 38px rgba(60, 39, 65, .08);
-  }
 
   .skill-glass-item {
     border: 1px solid rgba(255, 255, 255, .8);
@@ -293,12 +283,6 @@ const allIcons = skillsData.map((skill) => skill.icon).filter(Boolean);
 
   .skill-glass-item:hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 9px 22px rgba(52, 37, 54, .12); }
 
-  :global(.dark) .skills-surface {
-    border-color: rgba(255, 255, 255, .16);
-    background-color: #191821;
-    background-image: linear-gradient(180deg, rgba(24, 23, 33, .64), rgba(24, 23, 33, .87) 560px, #191821 1100px), url('/assets/desktop-banner/megumi1.jpg');
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 14px 38px rgba(0, 0, 0, .2);
-  }
 
   :global(.dark) .skill-glass-item {
     border-color: rgba(255, 255, 255, .13);

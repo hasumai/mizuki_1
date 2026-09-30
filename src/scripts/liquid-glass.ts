@@ -1,7 +1,7 @@
 /** Nebula-style liquid glass for Astro.
  * Uses one shared WebGL2 context and copies each result into a panel-owned 2D canvas.
  * The material follows Nebula's rounded-box SDF -> height gradient -> refract pipeline.
- * Pointer trails are intentionally disabled, matching LiquidGlass.vue's default.
+ * Pointer movement adds a restrained local refraction that fades quickly.
  */
 const nestedSurfaces = '.device-card, .skill-glass-item, .skills-chart-glass, .learning';
 const surfaces = `.card-base, .card-base-transparent, .float-panel, .dropdown-content, #navbar > div, ${nestedSurfaces}`;
@@ -22,6 +22,8 @@ uniform vec2 viewport, imageSize, size, origin, slice;
 uniform float radius, dark, screenTop;
 uniform float ior, thickness, normalStrength, displacementScale;
 uniform float transitionWidth, smoothing, highlightWidth;
+uniform vec2 pointer;
+uniform float pulse, age;
 
 float sminPolynomial(float a, float b, float k) {
   float h = max(k - abs(a - b), 0.0) / k;
@@ -49,6 +51,16 @@ float glassHeight(vec2 p, vec2 halfSize, float corner) {
   return clamp(1.0 - (1.0 / (1.0 + exp(-normalizedDistance * 6.0))), 0.0, 1.0);
 }
 
+float interactiveHeight(vec2 p, vec2 halfSize, float corner) {
+  float baseHeight = glassHeight(p, halfSize, corner);
+  vec2 delta = p - pointer;
+  float pointerDistance = length(delta);
+  float lens = exp(-pointerDistance * pointerDistance / 18000.0);
+  float softRipple = sin(pointerDistance * 0.055 - age * 6.0)
+    * exp(-pointerDistance / 115.0);
+  return baseHeight + pulse * (lens * 0.19 + softRipple * 0.018);
+}
+
 vec2 cover(vec2 p) {
   vec2 rendered = imageSize * max(viewport.x / imageSize.x, viewport.y / imageSize.y);
   vec2 t = (p - viewport * .5) / rendered + .5;
@@ -68,14 +80,14 @@ void main() {
 
   float stepNear = .75;
   float stepFar = 1.5;
-  float gradXNear = (glassHeight(centeredPoint + vec2(stepNear, 0.0), halfSize, actualRadius)
-    - glassHeight(centeredPoint - vec2(stepNear, 0.0), halfSize, actualRadius)) / (2.0 * stepNear);
-  float gradXFar = (glassHeight(centeredPoint + vec2(stepFar, 0.0), halfSize, actualRadius)
-    - glassHeight(centeredPoint - vec2(stepFar, 0.0), halfSize, actualRadius)) / (2.0 * stepFar);
-  float gradYNear = (glassHeight(centeredPoint + vec2(0.0, stepNear), halfSize, actualRadius)
-    - glassHeight(centeredPoint - vec2(0.0, stepNear), halfSize, actualRadius)) / (2.0 * stepNear);
-  float gradYFar = (glassHeight(centeredPoint + vec2(0.0, stepFar), halfSize, actualRadius)
-    - glassHeight(centeredPoint - vec2(0.0, stepFar), halfSize, actualRadius)) / (2.0 * stepFar);
+  float gradXNear = (interactiveHeight(centeredPoint + vec2(stepNear, 0.0), halfSize, actualRadius)
+    - interactiveHeight(centeredPoint - vec2(stepNear, 0.0), halfSize, actualRadius)) / (2.0 * stepNear);
+  float gradXFar = (interactiveHeight(centeredPoint + vec2(stepFar, 0.0), halfSize, actualRadius)
+    - interactiveHeight(centeredPoint - vec2(stepFar, 0.0), halfSize, actualRadius)) / (2.0 * stepFar);
+  float gradYNear = (interactiveHeight(centeredPoint + vec2(0.0, stepNear), halfSize, actualRadius)
+    - interactiveHeight(centeredPoint - vec2(0.0, stepNear), halfSize, actualRadius)) / (2.0 * stepNear);
+  float gradYFar = (interactiveHeight(centeredPoint + vec2(0.0, stepFar), halfSize, actualRadius)
+    - interactiveHeight(centeredPoint - vec2(0.0, stepFar), halfSize, actualRadius)) / (2.0 * stepFar);
 
   vec3 surfaceNormal = normalize(vec3(
     -mix(gradXNear, gradXFar, .5) * normalStrength,
@@ -140,6 +152,7 @@ function startLiquidGlass() {
       'backdrop', 'viewport', 'imageSize', 'size', 'origin', 'slice',
       'radius', 'dark', 'screenTop', 'ior', 'thickness', 'normalStrength',
       'displacementScale', 'transitionWidth', 'smoothing', 'highlightWidth',
+      'pointer', 'pulse', 'age',
     ]) {
       uniforms.set(name, gl!.getUniformLocation(program, name));
     }
@@ -154,6 +167,8 @@ function startLiquidGlass() {
   try { initialize(); } catch (error) { console.warn('[Liquid glass]', error); gpu.remove(); return; }
   const panels = new Map<HTMLElement, Panel>();
   let ready = false, lost = false, frame = 0, movingUntil = 0;
+  let pointerX = -1000, pointerY = -1000, pointerAt = -10000;
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let image = new Image();
   let backgroundUrl = '';
   let drawCount = 0;
@@ -235,6 +250,11 @@ function startLiquidGlass() {
     one('transitionWidth', dark ? 10 : (mobile ? 6 : 8));
     one('smoothing', mobile && !dark ? 15 : 20);
     one('highlightWidth', dark ? (mobile ? 5 : 4) : (mobile ? 3.5 : 3));
+    const pointerAge = Math.max(0, (now - pointerAt) / 1000);
+    const pointerProgress = Math.min(1, pointerAge / .9);
+    const pointerPulse = reducedMotion.matches ? 0 : 1 - pointerProgress * pointerProgress * (3 - 2 * pointerProgress);
+    one('pulse', pointerPulse);
+    one('age', pointerAge);
     let activePanels = 0;
     for (const [el, panel] of panels) {
       if (activePanels >= 6) break;
@@ -255,6 +275,7 @@ function startLiquidGlass() {
       two('size', rect.width, rect.height);
       two('origin', rect.left, top);
       two('slice', rect.width, height);
+      two('pointer', pointerX - rect.left - rect.width * .5, pointerY - rect.top - rect.height * .5);
       one('screenTop', rect.top + top);
       one('radius', Math.min(parseFloat(style.borderTopLeftRadius) || 16, rect.width / 2, rect.height / 2));
       gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -270,7 +291,7 @@ function startLiquidGlass() {
     }
     gpu.dataset.drawCount = String(drawCount);
     gpu.dataset.activePanels = String(activePanels);
-    if (now < movingUntil) requestDraw();
+    if (now < movingUntil || pointerPulse > .001) requestDraw();
   }
   gpu.addEventListener('webglcontextlost', event => {
     event.preventDefault(); lost = true; ready = false;
@@ -282,6 +303,13 @@ function startLiquidGlass() {
   });
   window.addEventListener('scroll', requestDraw, { passive: true, capture: true });
   window.addEventListener('resize', requestDraw, { passive: true });
+  window.addEventListener('pointermove', event => {
+    if (reducedMotion.matches || event.pointerType === 'touch') return;
+    pointerX = event.clientX;
+    pointerY = event.clientY;
+    pointerAt = performance.now();
+    requestDraw();
+  }, { passive: true });
   document.addEventListener('visibilitychange', requestDraw);
   for (const type of ['transitionrun', 'animationstart']) document.addEventListener(type, () => {
     movingUntil = performance.now() + 1200; requestDraw();
@@ -298,6 +326,7 @@ function startLiquidGlass() {
   theme.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   theme.observe(document.body, { attributes: true, attributeFilter: ['class'] });
   opaque.addEventListener('change', requestDraw);
+  reducedMotion.addEventListener('change', requestDraw);
   discover();
   movingUntil = performance.now() + 1800;
 }

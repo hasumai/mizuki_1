@@ -85,9 +85,16 @@ body.site-glass .liquid-glass-canvas {
   position: absolute;
   left: 0;
   width: 100%;
-  z-index: -1;
+  /* Keep the WebGL material above the panel background. A negative layer is
+     painted behind the stacking context's background and becomes invisible. */
+  z-index: 0;
   pointer-events: none;
   object-fit: fill;
+}
+
+body.site-glass .liquid-panel > :not(.liquid-glass-canvas) {
+  position: relative;
+  z-index: 1;
 }
 
 body.site-glass .liquid-ready > .liquid-glass-canvas { visibility: visible; }

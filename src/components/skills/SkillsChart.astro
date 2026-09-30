@@ -50,6 +50,7 @@ interface Props {
 	stats: {
 		total: number;
 		byLevel: {
+			unrated: number;
 			beginner: number;
 			intermediate: number;
 			advanced: number;
@@ -73,6 +74,7 @@ const { stats, totalExperience } = Astro.props;
 
 // 颜色配置
 const levelColors = {
+	unrated: "#17827B",
 	expert: "#EF4444", // red-500
 	advanced: "#F97316", // orange-500
 	intermediate: "#EAB308", // yellow-500
@@ -89,6 +91,11 @@ const categoryColors = {
 
 // 计算扇形图数据（按技能等级）
 const levelData = [
+	{
+		name: "未评估",
+		value: stats.byLevel.unrated,
+		color: levelColors.unrated,
+	},
 	{
 		name: i18n(I18nKey.skillLevelExpert),
 		value: stats.byLevel.expert,

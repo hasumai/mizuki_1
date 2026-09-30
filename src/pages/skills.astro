@@ -30,7 +30,7 @@ const advancedSkills = getAdvancedSkills();
 const totalExperience = getTotalExperience();
 
 // 获取所有分类
-const categories = [...new Set(skillsData.map((skill) => skill.category))];
+const categories = ["frontend", "backend", "database", "tools", "other"];
 
 // 按分类获取技能
 const skillsByCategory = categories.reduce(
@@ -69,7 +69,7 @@ const getLevelWidth = (level: string) => {
 		case "beginner":
 			return "40%";
 		default:
-			return "20%";
+			return "0%";
 	}
 };
 
@@ -166,7 +166,7 @@ const allIcons = skillsData.map((skill) => skill.icon).filter(Boolean);
                         {skill.level === 'expert' ? i18n(I18nKey.skillLevelExpert) :
                          skill.level === 'advanced' ? i18n(I18nKey.skillLevelAdvanced) :
                          skill.level === 'intermediate' ? i18n(I18nKey.skillLevelIntermediate) :
-                         i18n(I18nKey.skillLevelBeginner)}
+                         skill.level === 'beginner' ? i18n(I18nKey.skillLevelBeginner) : '未评估'}
                       </span>
                     </div>
                     <p class="text-black/60 dark:text-white/60 mb-3 text-sm">
@@ -207,8 +207,6 @@ const allIcons = skillsData.map((skill) => skill.icon).filter(Boolean);
       <div class="space-y-8 skills-container" style="container-type: inline-size;">
         {categories.map((category) => {
           const categorySkills = skillsByCategory[category];
-          if (categorySkills.length === 0) return null;
-          
           return (
             <div>
               <h2 class="text-2xl font-bold text-black/90 dark:text-white/90 mb-4 relative
@@ -219,7 +217,7 @@ const allIcons = skillsData.map((skill) => skill.icon).filter(Boolean);
                   ({categorySkills.length})
                 </span>
               </h2>
-              <div class="skills-grid-container grid grid-cols-1 gap-4">
+              {categorySkills.length === 0 ? <p class="text-sm text-black/50 dark:text-white/50">暂无已记录技能</p> : <div class="skills-grid-container grid grid-cols-1 gap-4">
                 {categorySkills.map((skill) => (
                   <div class="bg-transparent rounded-lg border border-black/10 dark:border-white/10 p-4 hover:shadow-lg transition-shadow duration-300">
                     <div class="flex items-start gap-3">
@@ -243,7 +241,7 @@ const allIcons = skillsData.map((skill) => skill.icon).filter(Boolean);
                             {skill.level === 'expert' ? i18n(I18nKey.skillLevelExpert) :
                              skill.level === 'advanced' ? i18n(I18nKey.skillLevelAdvanced) :
                              skill.level === 'intermediate' ? i18n(I18nKey.skillLevelIntermediate) :
-                             i18n(I18nKey.skillLevelBeginner)}
+                             skill.level === 'beginner' ? i18n(I18nKey.skillLevelBeginner) : '未评估'}
                           </span>
                         </div>
                         <p class="text-black/60 dark:text-white/60 mb-2 text-sm line-clamp-2">
@@ -264,7 +262,7 @@ const allIcons = skillsData.map((skill) => skill.icon).filter(Boolean);
                     </div>
                   </div>
                 ))}
-              </div>
+              </div>}
             </div>
           );
         })}

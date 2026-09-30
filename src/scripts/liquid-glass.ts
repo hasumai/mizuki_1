@@ -1,70 +1,118 @@
-/** Background-texture refraction, inspired by Nebula's shared-renderer architecture.
- * One WebGL context, viewport-sized copies, event-driven frames. DOM content stays native.
- * This is an independent renderer, not a copy of Nebula's Vue implementation.
+/** Nebula-style liquid glass for Astro.
+ * Uses one shared WebGL2 context and copies each result into a panel-owned 2D canvas.
+ * The material follows Nebula's rounded-box SDF -> height gradient -> refract pipeline.
+ * Pointer trails are intentionally disabled, matching LiquidGlass.vue's default.
  */
-const surfaces = '.card-base, .card-base-transparent, .float-panel, .dropdown-content, #navbar > div:nth-child(2)';
+const nestedSurfaces = '.device-card, .skill-glass-item, .skills-chart-glass, .learning';
+const surfaces = `.card-base, .card-base-transparent, .float-panel, .dropdown-content, #navbar > div, ${nestedSurfaces}`;
 const vertex = `
-attribute vec2 position;
-varying vec2 uv;
-void main() { uv = position * .5 + .5; gl_Position = vec4(position, 0., 1.); }
+#version 300 es
+in vec2 position;
+out vec2 uv;
+void main() {
+  uv = position * .5 + .5;
+  gl_Position = vec4(position, 0., 1.);
+}
 `;
 const fragment = `
+#version 300 es
 precision highp float;
-varying vec2 uv;
+in vec2 uv;
+out vec4 fragColor;
 uniform sampler2D backdrop;
-uniform vec2 viewport, imageSize, size, origin, slice, pointer;
-uniform float radius, dark, pulse, age, screenTop;
-float shape(vec2 p) {
-  vec2 q = abs(p - size * .5) - size * .5 + radius;
-  return length(max(q, 0.)) + min(max(q.x, q.y), 0.) - radius;
+uniform vec2 viewport, imageSize, size, origin, slice;
+uniform float radius, dark, screenTop;
+uniform float ior, thickness, normalStrength, displacementScale;
+uniform float transitionWidth, smoothing, highlightWidth;
+
+float sminPolynomial(float a, float b, float k) {
+  float h = max(k - abs(a - b), 0.0) / k;
+  return min(a, b) - h * h * k * 0.25;
 }
+
+float smaxPolynomial(float a, float b, float k) {
+  return -sminPolynomial(-a, -b, k);
+}
+
+float roundedBoxSdf(vec2 p, vec2 halfSize, float corner, float smoothness) {
+  vec2 q = abs(p) - halfSize + corner;
+  float joined = smaxPolynomial(q.x, q.y, smoothness);
+  float interior = sminPolynomial(joined, 0.0, smoothness * 0.5);
+  vec2 exterior = vec2(
+    smaxPolynomial(q.x, 0.0, smoothness),
+    smaxPolynomial(q.y, 0.0, smoothness)
+  );
+  return interior + length(exterior) - corner;
+}
+
+float glassHeight(vec2 p, vec2 halfSize, float corner) {
+  float distanceToEdge = roundedBoxSdf(p, halfSize, corner, smoothing);
+  float normalizedDistance = distanceToEdge / transitionWidth;
+  return clamp(1.0 - (1.0 / (1.0 + exp(-normalizedDistance * 6.0))), 0.0, 1.0);
+}
+
 vec2 cover(vec2 p) {
   vec2 rendered = imageSize * max(viewport.x / imageSize.x, viewport.y / imageSize.y);
   vec2 t = (p - viewport * .5) / rendered + .5;
   return clamp(vec2(t.x, 1. - t.y), .001, .999);
 }
+
 void main() {
-  vec2 p = vec2(uv.x, 1. - uv.y) * slice + vec2(0., origin.y);
-  float d = shape(p);
-  float inside = max(-d, 0.);
-  vec2 n = normalize(vec2(shape(p+vec2(.5,0.))-shape(p-vec2(.5,0.)),
-                         shape(p+vec2(0.,.5))-shape(p-vec2(0.,.5))) + .0001);
-  // Curved rim acts as a lens; interior stays flat for legibility.
-  float rim = exp(-inside / 14.);
-  vec2 offset = -n * sin(clamp(inside / 32., 0., 1.) * 3.14159) * 24. * rim;
-  vec2 delta = p - pointer;
-  float distanceToPointer = length(delta);
-  float ripple = sin(distanceToPointer * .065 - age * 10.) * exp(-distanceToPointer / 150.) * pulse;
-  offset += delta / max(distanceToPointer, 1.) * ripple * 8.;
-  vec2 base = vec2(p.x + origin.x, (1. - uv.y) * slice.y + screenTop);
-  vec3 color = texture2D(backdrop, cover(base + offset)).rgb;
-  float split = rim * .75;
-  color.r = texture2D(backdrop, cover(base + offset + n * split)).r;
-  color.b = texture2D(backdrop, cover(base + offset - n * split)).b;
-  float center = smoothstep(0., 22., inside);
-  color = mix(color, mix(vec3(.98,.97,.99), vec3(.065,.065,.095), dark),
-              mix(.40, .48, dark) + center * .23);
-  vec2 light = normalize(pointer - size * .5 + vec2(-180., -240.));
-  float specular = pow(max(dot(n, light), 0.), 2.);
-  float edge = exp(-inside / 1.8) * (.25 + .65 * specular);
-  color += vec3(edge * mix(.58,.38,dark) + rim * specular * .07);
-  color += vec3(.03,.045,.06) * ripple;
-  gl_FragColor = vec4(color, 1. - smoothstep(-.8,.6,d));
+  vec2 localPoint = vec2(uv.x, 1. - uv.y) * slice + vec2(0.0, origin.y);
+  vec2 centeredPoint = localPoint - size * .5;
+  vec2 halfSize = size * .5;
+  float actualRadius = min(radius, min(size.x, size.y) * .5);
+  float distanceToEdge = roundedBoxSdf(centeredPoint, halfSize, actualRadius, smoothing);
+
+  float edgeWidth = max(fwidth(distanceToEdge), 1.0);
+  float shapeAlpha = 1.0 - smoothstep(0.0, edgeWidth * 2.0, distanceToEdge - edgeWidth * 0.5);
+  if (shapeAlpha <= 0.0) discard;
+
+  float stepNear = .75;
+  float stepFar = 1.5;
+  float gradXNear = (glassHeight(centeredPoint + vec2(stepNear, 0.0), halfSize, actualRadius)
+    - glassHeight(centeredPoint - vec2(stepNear, 0.0), halfSize, actualRadius)) / (2.0 * stepNear);
+  float gradXFar = (glassHeight(centeredPoint + vec2(stepFar, 0.0), halfSize, actualRadius)
+    - glassHeight(centeredPoint - vec2(stepFar, 0.0), halfSize, actualRadius)) / (2.0 * stepFar);
+  float gradYNear = (glassHeight(centeredPoint + vec2(0.0, stepNear), halfSize, actualRadius)
+    - glassHeight(centeredPoint - vec2(0.0, stepNear), halfSize, actualRadius)) / (2.0 * stepNear);
+  float gradYFar = (glassHeight(centeredPoint + vec2(0.0, stepFar), halfSize, actualRadius)
+    - glassHeight(centeredPoint - vec2(0.0, stepFar), halfSize, actualRadius)) / (2.0 * stepFar);
+
+  vec3 surfaceNormal = normalize(vec3(
+    -mix(gradXNear, gradXFar, .5) * normalStrength,
+    -mix(gradYNear, gradYFar, .5) * normalStrength,
+    1.0
+  ));
+  vec3 incident = vec3(0.0, 0.0, -1.0);
+  vec3 intoGlass = refract(incident, surfaceNormal, 1.0 / ior);
+  vec3 outOfGlass = refract(intoGlass, -surfaceNormal, ior);
+  vec2 refractionOffset = outOfGlass.xy * thickness * displacementScale;
+
+  vec2 base = vec2(localPoint.x + origin.x, (1. - uv.y) * slice.y + screenTop);
+  vec4 backgroundColor = texture(backdrop, cover(base + refractionOffset));
+  float heightValue = glassHeight(centeredPoint, halfSize, actualRadius);
+  vec3 overlay = mix(vec3(.42, .50, .62), vec3(.20, .26, .32), dark);
+  vec4 materialColor = mix(backgroundColor, vec4(overlay, 1.0), heightValue * .15);
+
+  float highlight = 1.0 - smoothstep(0.0, highlightWidth, abs(distanceToEdge));
+  float directional = (surfaceNormal.x * surfaceNormal.y + 1.0) * .5;
+  vec4 shaded = mix(materialColor, vec4(1.0), highlight * directional);
+  fragColor = vec4(shaded.rgb, shaded.a * shapeAlpha);
 }
 `;
 
 type Panel = { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D; visible: boolean };
 
 function startLiquidGlass() {
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const opaque = matchMedia('(prefers-reduced-transparency: reduce)');
   const gpu = document.createElement('canvas');
   gpu.dataset.liquidRenderer = '';
   gpu.hidden = true;
   document.body.append(gpu);
-  const context = gpu.getContext('webgl', { alpha: true, premultipliedAlpha: false, preserveDrawingBuffer: true, antialias: false });
+  const context = gpu.getContext('webgl2', { alpha: true, premultipliedAlpha: false, preserveDrawingBuffer: true, antialias: false });
   if (!context) { gpu.remove(); return; }
-  const gl: WebGLRenderingContext = context;
+  const gl: WebGL2RenderingContext = context;
   const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
   let program: WebGLProgram;
   let texture: WebGLTexture;
@@ -90,7 +138,11 @@ function startLiquidGlass() {
     gl!.enableVertexAttribArray(position);
     gl!.vertexAttribPointer(position, 2, gl!.FLOAT, false, 0, 0);
     uniforms.clear();
-    for (const name of ['backdrop','viewport','imageSize','size','origin','slice','pointer','radius','dark','pulse','age','screenTop']) {
+    for (const name of [
+      'backdrop', 'viewport', 'imageSize', 'size', 'origin', 'slice',
+      'radius', 'dark', 'screenTop', 'ior', 'thickness', 'normalStrength',
+      'displacementScale', 'transitionWidth', 'smoothing', 'highlightWidth',
+    ]) {
       uniforms.set(name, gl!.getUniformLocation(program, name));
     }
     texture = gl!.createTexture()!;
@@ -104,7 +156,6 @@ function startLiquidGlass() {
   try { initialize(); } catch (error) { console.warn('[Liquid glass]', error); gpu.remove(); return; }
   const panels = new Map<HTMLElement, Panel>();
   let ready = false, lost = false, frame = 0, movingUntil = 0;
-  let pointerX = -1000, pointerY = -1000, pointerAt = -10000;
   let image = new Image();
   let backgroundUrl = '';
   let drawCount = 0;
@@ -142,7 +193,7 @@ function startLiquidGlass() {
       if (panel) panel.visible = entry.isIntersecting;
     }
     requestDraw();
-  });
+  }, { rootMargin: '100px' });
   const resize = new ResizeObserver(() => requestDraw());
   function discover() {
     for (const [el, panel] of panels) {
@@ -151,7 +202,7 @@ function startLiquidGlass() {
       }
     }
     document.querySelectorAll<HTMLElement>(surfaces).forEach(el => {
-      if (panels.has(el) || el.parentElement?.closest('.card-base, .card-base-transparent')) return;
+      if (panels.has(el)) return;
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) return;
@@ -172,16 +223,23 @@ function startLiquidGlass() {
     if (!enabled) { panels.forEach((_, el) => el.classList.remove('liquid-ready')); return; }
     const dark = document.documentElement.classList.contains('dark');
     const scale = Math.min(devicePixelRatio, innerWidth < 768 ? 1 : 1.25);
-    const age = (now - pointerAt) / 1000;
-    const pulse = reduced.matches ? 0 : Math.max(0, 1 - age / .9);
     gl.useProgram(program);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.uniform1i(uniforms.get('backdrop')!, 0);
     two('viewport', innerWidth, innerHeight);
     two('imageSize', image.naturalWidth, image.naturalHeight);
     one('dark', dark ? 1 : 0);
-    one('age', age);
+    const mobile = innerWidth <= 768;
+    one('ior', dark ? (mobile ? 1.16 : 1.2) : 1.1);
+    one('thickness', dark ? (mobile ? 60 : 38) : (mobile ? 38 : 40));
+    one('normalStrength', dark ? (mobile ? 8.5 : 6.5) : (mobile ? 7 : 8));
+    one('displacementScale', dark ? (mobile ? .95 : .68) : 1);
+    one('transitionWidth', dark ? 10 : (mobile ? 6 : 8));
+    one('smoothing', mobile && !dark ? 15 : 20);
+    one('highlightWidth', dark ? (mobile ? 5 : 4) : (mobile ? 3.5 : 3));
+    let activePanels = 0;
     for (const [el, panel] of panels) {
+      if (activePanels >= 6) break;
       if (!el.isConnected || !panel.visible) continue;
       const rect = el.getBoundingClientRect();
       if (rect.width < 1 || rect.height < 1 || rect.right < 0 || rect.left > innerWidth || rect.bottom < 0 || rect.top > innerHeight) continue;
@@ -199,10 +257,8 @@ function startLiquidGlass() {
       two('size', rect.width, rect.height);
       two('origin', rect.left, top);
       two('slice', rect.width, height);
-      two('pointer', pointerX - rect.left, pointerY - rect.top);
       one('screenTop', rect.top + top);
       one('radius', Math.min(parseFloat(style.borderTopLeftRadius) || 16, rect.width / 2, rect.height / 2));
-      one('pulse', pulse);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       if (panel.canvas.width !== width) panel.canvas.width = width;
       if (panel.canvas.height !== physicalHeight) panel.canvas.height = physicalHeight;
@@ -212,9 +268,11 @@ function startLiquidGlass() {
       panel.context.drawImage(gpu, 0, 0);
       el.classList.add('liquid-ready');
       drawCount++;
+      activePanels++;
     }
     gpu.dataset.drawCount = String(drawCount);
-    if (pulse > 0 || now < movingUntil) requestDraw();
+    gpu.dataset.activePanels = String(activePanels);
+    if (now < movingUntil) requestDraw();
   }
   gpu.addEventListener('webglcontextlost', event => {
     event.preventDefault(); lost = true; ready = false;
@@ -224,10 +282,6 @@ function startLiquidGlass() {
     try { initialize(); lost = false; backgroundUrl = ''; loadBackground(); }
     catch { lost = true; }
   });
-  window.addEventListener('pointermove', event => {
-    if (reduced.matches || event.pointerType === 'touch') return;
-    pointerX = event.clientX; pointerY = event.clientY; pointerAt = performance.now(); requestDraw();
-  }, { passive: true });
   window.addEventListener('scroll', requestDraw, { passive: true, capture: true });
   window.addEventListener('resize', requestDraw, { passive: true });
   document.addEventListener('visibilitychange', requestDraw);
@@ -242,7 +296,6 @@ function startLiquidGlass() {
   const theme = new MutationObserver(() => { loadBackground(); requestDraw(); });
   theme.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   theme.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-  reduced.addEventListener('change', requestDraw);
   opaque.addEventListener('change', requestDraw);
   discover();
   movingUntil = performance.now() + 1800;

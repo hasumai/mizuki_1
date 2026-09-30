@@ -5,8 +5,7 @@
  */
 const nestedSurfaces = '.device-card, .skill-glass-item, .skills-chart-glass, .learning';
 const surfaces = `.card-base, .card-base-transparent, .float-panel, .dropdown-content, #navbar > div, ${nestedSurfaces}`;
-const vertex = `
-#version 300 es
+const vertex = `#version 300 es
 in vec2 position;
 out vec2 uv;
 void main() {
@@ -14,8 +13,7 @@ void main() {
   gl_Position = vec4(position, 0., 1.);
 }
 `;
-const fragment = `
-#version 300 es
+const fragment = `#version 300 es
 precision highp float;
 in vec2 uv;
 out vec4 fragColor;
@@ -202,7 +200,7 @@ function startLiquidGlass() {
       }
     }
     document.querySelectorAll<HTMLElement>(surfaces).forEach(el => {
-      if (panels.has(el)) return;
+      if (panels.has(el) || el.closest('astro-island[ssr]')) return;
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) return;
@@ -290,9 +288,12 @@ function startLiquidGlass() {
   }, true);
   for (const type of ['transitionend', 'animationend']) document.addEventListener(type, requestDraw, true);
   const tree = new MutationObserver(records => {
-    if (records.some(record => [...record.addedNodes, ...record.removedNodes].some(node => node instanceof HTMLElement && !node.matches('.liquid-glass-canvas')))) discover();
+    const islandHydrated = records.some(record => record.type === 'attributes' && record.attributeName === 'ssr');
+    const contentChanged = records.some(record => [...record.addedNodes, ...record.removedNodes]
+      .some(node => node instanceof HTMLElement && !node.matches('.liquid-glass-canvas')));
+    if (islandHydrated || contentChanged) discover();
   });
-  tree.observe(document.body, { childList: true, subtree: true });
+  tree.observe(document.body, { childList: true, attributes: true, attributeFilter: ['ssr'], subtree: true });
   const theme = new MutationObserver(() => { loadBackground(); requestDraw(); });
   theme.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   theme.observe(document.body, { attributes: true, attributeFilter: ['class'] });

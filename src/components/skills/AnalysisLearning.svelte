@@ -201,7 +201,8 @@
 </section>
 
 <style>
-  .learning { margin-bottom: 2rem; padding: 1.35rem; border: 1px solid color-mix(in srgb, var(--primary) 24%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--primary) 5%, transparent); color: inherit; }
+  .learning { margin-bottom: 2rem; padding: 1.35rem; border: 1px solid rgba(255,255,255,.85); border-radius: 8px; background: rgba(255,255,255,.74); backdrop-filter: blur(16px) saturate(130%); -webkit-backdrop-filter: blur(16px) saturate(130%); box-shadow: inset 0 1px 0 rgba(255,255,255,.92), 0 12px 30px rgba(65,37,59,.11); color: inherit; }
+  :global(.dark) .learning { border-color: rgba(255,255,255,.19); background: rgba(26,26,35,.74); box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 12px 30px rgba(0,0,0,.22); }
   .learning-head { display:flex; justify-content:space-between; align-items:center; gap:1rem; }
   .eyebrow { font-size:.7rem; font-weight:750; color:var(--primary); }
   h2 { font-size:1.45rem; font-weight:750; margin:.15rem 0; }
@@ -212,7 +213,8 @@
   .progress { height:7px; border-radius:4px; margin:1rem 0 1.25rem; background:color-mix(in srgb, var(--primary) 16%, transparent); overflow:hidden; }
   .progress span { display:block; height:100%; background:var(--primary); transition:width .25s; }
   .group-progress { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; }
-  .group-progress button { position:relative; display:flex; justify-content:space-between; gap:.5rem; padding:.65rem .7rem .85rem; text-align:left; border:1px solid var(--line-divider); border-radius:5px; overflow:hidden; font-size:.78rem; }
+  .group-progress button { position:relative; display:flex; justify-content:space-between; gap:.5rem; padding:.65rem .7rem .85rem; text-align:left; border:1px solid rgba(255,255,255,.75); border-radius:5px; overflow:hidden; background:rgba(255,255,255,.43); box-shadow:inset 0 1px 0 rgba(255,255,255,.7); font-size:.78rem; }
+  :global(.dark) .group-progress button { border-color:rgba(255,255,255,.12); background:rgba(255,255,255,.05); box-shadow:inset 0 1px 0 rgba(255,255,255,.09); }
   .group-progress button.active { border-color:var(--primary); }
   .group-progress b { flex-shrink:0; font-size:.75rem; }
   .group-progress i { position:absolute; bottom:0; left:0; height:3px; background:var(--primary); }

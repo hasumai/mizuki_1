@@ -1,5 +1,5 @@
-/* Shared glass surfaces, inspired by Nebula's PanelFallbackGlass approach.
-   CSS material only: no WebGL refraction. Nested cards avoid repeated blur. */
+/* Fallback surfaces for the shared WebGL liquid-glass renderer.
+   Nested cards avoid repeated blur. */
 body.site-glass {
   --site-glass-fill: rgba(255, 250, 254, .74);
   --site-glass-border: rgba(255, 255, 255, .7);
@@ -72,4 +72,36 @@ body.site-glass .learning :is(input, select, textarea) {
 @media (prefers-reduced-transparency: reduce) {
   body.site-glass { --site-glass-fill: var(--card-bg); --site-glass-nested: var(--card-bg); }
   body.site-glass.enable-banner::before { display: none; }
+}
+
+body.site-glass .liquid-positioned { position: relative; }
+
+body.site-glass .liquid-panel {
+  isolation: isolate;
+}
+
+body.site-glass .liquid-glass-canvas {
+  visibility: hidden;
+  position: absolute;
+  left: 0;
+  width: 100%;
+  z-index: -1;
+  pointer-events: none;
+  object-fit: fill;
+}
+
+body.site-glass .liquid-ready > .liquid-glass-canvas { visibility: visible; }
+
+body.site-glass .liquid-panel.liquid-ready {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: inset 0 1px 0 var(--site-glass-light), 0 8px 28px var(--site-glass-shadow) !important;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  body.site-glass .liquid-panel.liquid-ready {
+    background: var(--card-bg) !important;
+  }
+  body.site-glass .liquid-glass-canvas { display: none; }
 }
